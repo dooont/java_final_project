@@ -1,3 +1,5 @@
+package whack_a_mole;
+
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -5,7 +7,17 @@ import javax.swing.*;
 import javax.swing.border.Border;
 import java.util.Random;
 
-public class Main {
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.ResultSet;
+import java.sql.Statement;
+
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
+
+public class Whack_A_Mole {
     private static JFrame frame;
     private static JPanel gamePanel;
     private static JPanel settingsPanel;
@@ -280,15 +292,86 @@ public class Main {
             });
         }
 
+//        private void endGame() {
+//            SwingUtilities.invokeLater(new Runnable() {
+//                @Override
+//                public void run() {
+//                    JOptionPane.showMessageDialog(frame, "Game Over! Your score: " + score);
+//                    score = 0;
+//                    showMainMenu();
+//                }
+//            });
+//        }
         private void endGame() {
-            SwingUtilities.invokeLater(new Runnable() {
-                @Override
-                public void run() {
-                    JOptionPane.showMessageDialog(frame, "Game Over! Your score: " + score);
-                    score = 0;
-                    showMainMenu();
+            SwingUtilities.invokeLater(() -> {
+                List<ScoreEntry> topScores = MySQLConnection.getTopScores();
+                boolean isTopScore = topScores.size() < 10 || score > topScores.get(topScores.size() - 1).getScore();
+
+                if (isTopScore) {
+                    String initials = JOptionPane.showInputDialog(frame, "Congratulations! Enter your initials (3 characters max):");
+                    if (initials != null && initials.length() <= 3) {
+                        MySQLConnection.insertScore(initials.toUpperCase(), score);
+                    }
+                } else {
+                    MySQLConnection.insertScore("NON", score);
                 }
+
+                JOptionPane.showMessageDialog(frame, "Game Over! Your score: " + score);
+                score = 0;
+                showMainMenu();
             });
+    }
+    
+    class MySQLConnection {
+        private static final String URL = "jdbc:mysql://localhost/javafinal?useSSL=false";
+        private static final String USERNAME = "root";
+        private static final String PASSWORD = "";
+
+        private static Connection getConnection() throws SQLException {
+            return DriverManager.getConnection(URL, USERNAME, PASSWORD);
         }
+
+        public static void insertScore(String initials, int score) {
+            String sql = "INSERT INTO Scores (initials, score) VALUES (?, ?)";
+            try (Connection conn = getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setString(1, initials);
+                pstmt.setInt(2, score);
+                pstmt.executeUpdate();
+            } catch (SQLException e) {
+                System.out.println("SQL Exception: " + e.getMessage());
+            }
+        }
+
+        public static List<ScoreEntry> getTopScores() {
+            List<ScoreEntry> scores = new ArrayList<>();
+            String sql = "SELECT initials, score FROM Scores ORDER BY score DESC LIMIT 10";
+            try (Connection conn = getConnection(); Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
+                while (rs.next()) {
+                    scores.add(new ScoreEntry(rs.getString("initials"), rs.getInt("score")));
+                }
+            } catch (SQLException e) {
+                System.out.println("SQL Exception: " + e.getMessage());
+            }
+            return scores;
+        }
+    }
+
+    private static class ScoreEntry {
+        private String initials;
+        private int score;
+
+        public ScoreEntry(String initials, int score) {
+            this.initials = initials;
+            this.score = score;
+        }
+
+        public String getInitials() {
+            return initials;
+        }
+
+        public int getScore() {
+            return score;
+        }
+    	}
     }
 }
