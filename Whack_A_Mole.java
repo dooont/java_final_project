@@ -2,6 +2,7 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import javax.swing.*;
+import javax.swing.border.Border;
 import java.util.Random;
 
 public class Main {
@@ -33,7 +34,7 @@ public class Main {
 
     // Main Menu Screen
     private static void showMainMenu() {
-        JPanel mainPanel = new JPanel(new GridLayout(2, 1));
+        JPanel mainPanel = new JPanel(new GridLayout(3, 1));
         JButton playButton = new JButton("Play");
 
         playButton.addActionListener(new ActionListener() {
@@ -52,8 +53,18 @@ public class Main {
             }
         });
 
+        JButton howToPlayButton = new JButton("How to Play");
+
+        howToPlayButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                showHowToPlayScreen();
+            }
+        });
+
         mainPanel.add(playButton);
         mainPanel.add(settingsButton);
+        mainPanel.add(howToPlayButton);
         frame.getContentPane().removeAll();
         frame.getContentPane().add(mainPanel);
         frame.revalidate();
@@ -62,7 +73,9 @@ public class Main {
 
     // Game Screen
     private static void showGameScreen() {
-        gamePanel = new JPanel(new GridLayout(5, 2));
+        // number of moles increases by 2 based on difficulty
+        int numOfMoles = 8 + (difficulty - 1) * 2;
+        gamePanel = new JPanel(new GridLayout(numOfMoles / 2 + 1, 2));
         scoreLabel = new JLabel("Score: " + score);
         gamePanel.add(scoreLabel);
 
@@ -71,16 +84,20 @@ public class Main {
 
 
         // Add mole buttons to the game panel
-        for (int i = 0; i < 8; i++) {
+        for (int i = 0; i < numOfMoles; i++) {
             JButton moleButton = new JButton("Mole " + (i+1));
             moleButton.putClientProperty("active", true);
 
-            // when clicking green mole, increase score by 1
+            // when clicking green mole, increase score by 1, if red decrease by 1
             moleButton.addActionListener(new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
                     if (moleButton.getBackground() == Color.GREEN) {
                         score++;
+                        scoreLabel.setText("Score: " + score);
+                    }
+                    else if (moleButton.getBackground() == Color.RED) {
+                        score--;
                         scoreLabel.setText("Score: " + score);
                     }
                 }
@@ -95,7 +112,6 @@ public class Main {
         // Starts timer, each increasing difficulty decreases time by 10 seconds
         timer = new Timer(60 - (difficulty - 1) * 10, timerLabel);
         timer.start();
-
 
         frame.getContentPane().removeAll();
         frame.getContentPane().add(gamePanel);
@@ -148,21 +164,53 @@ public class Main {
         frame.repaint();
     }
 
-    // Goal is suppose to change the color of moles. Currently not working, try to fix it
+    // How to Play Screen
+    private static void showHowToPlayScreen() {
+        JPanel howToPlayPanel = new JPanel(new BorderLayout());
+        JTextArea instructionsTextArea = new JTextArea();
+        instructionsTextArea.setEditable(false);
+        instructionsTextArea.setLineWrap(true);
+        instructionsTextArea.setText("How to Play Whack A Mole:\n\n" +
+                "1.) Hit a green mole to gain one point, Hit a red mole to lose one point!\n\n" +
+                "2.) Increase difficulty to decrease time, increase mole speed and number of moles!\n\n" +
+                "3.) Have Fun and don't get too stressed out!");
+
+        JScrollPane scrollPane = new JScrollPane(instructionsTextArea);
+        howToPlayPanel.add(scrollPane, BorderLayout.CENTER);
+
+        JButton backButton = new JButton("Back");
+        backButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                showMainMenu();
+            }
+        });
+        howToPlayPanel.add(backButton, BorderLayout.SOUTH);
+
+        frame.getContentPane().removeAll();
+        frame.getContentPane().add(howToPlayPanel);
+        frame.revalidate();
+        frame.repaint();
+    }
+
+    // Changes the moles color, difficulty increases the speed
     private static class MoleColorChanger implements Runnable {
         private JButton moleButton;
         private Random random;
+        private int difficulty;
 
         public MoleColorChanger(JButton moleButton) {
             this.moleButton = moleButton;
             this.random = new Random();
+            this.difficulty = difficulty;
         }
 
         @Override
         public void run() {
             while (true) {
                 if ((boolean) moleButton.getClientProperty("active")) {
-                    int delay = random.nextInt(1000) + 500;
+                    // base color average change rate is 3 seconds, changes depending on difficulty
+                    int delay = random.nextInt(3000) - (difficulty - 1) * 1000;
 
                     // Change color to red
                     moleButton.setBackground(Color.RED);
