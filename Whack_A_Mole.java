@@ -1,4 +1,4 @@
-	package whack_a_mole;
+package whack_a_mole;
 
 import java.awt.*;
 import java.awt.event.ActionEvent;
