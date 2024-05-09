@@ -1,7 +1,10 @@
+	package whack_a_mole;
+
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import javax.swing.*;
+import javax.swing.border.Border;
 import java.util.Random;
 
 import java.sql.Connection;
@@ -12,9 +15,18 @@ import java.sql.Statement;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.List;
 
-public class Main {
+import java.io.*;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.SocketException;
+import java.net.UnknownHostException;
+
+public class Whack_A_Mole {
     private static JFrame frame;
     private static JPanel gamePanel;
     private static JPanel settingsPanel;
@@ -89,6 +101,7 @@ public class Main {
         frame.revalidate();
         frame.repaint();
     }
+
 
     // Game Screen
     private static void showGameScreen() {
@@ -225,7 +238,7 @@ public class Main {
             }
         });
 
-        waitingPanel.add(waitingPanel, BorderLayout.CENTER);
+        waitingPanel.add(waitingLabel, BorderLayout.CENTER);
         waitingPanel.add(cancelButton, BorderLayout.SOUTH);
         frame.getContentPane().removeAll();
         frame.getContentPane().add(waitingPanel);
@@ -236,7 +249,7 @@ public class Main {
         Thread networkThread = new Thread(new Runnable() {
             @Override
             public void run() {
-
+            	new Game();
             }
         });
         networkThread.start();
@@ -311,7 +324,7 @@ public class Main {
         frame.revalidate();
         frame.repaint();
     }
-
+    
     // Changes the moles color, difficulty increases the speed
     private static class MoleColorChanger implements Runnable {
         private JButton moleButton;
@@ -471,4 +484,297 @@ public class Main {
             }
         }
     }
+    
+//    private static class Client {
+//        private Socket socket;
+//        private PrintWriter out;
+//        private BufferedReader in;
+//
+//        public void startConnection(String ip, int port) throws IOException {
+//            socket = new Socket(ip, port);
+//            out = new PrintWriter(socket.getOutputStream(), true);
+//            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+//
+//            // Listen for the start game command from the server
+//            String fromServer;
+//            while ((fromServer = in.readLine()) != null) {
+//                if ("START_GAME".equals(fromServer)) {
+//                    System.out.println("Game starts now!");
+//                    break;  // Exit the loop and start the game
+//                }
+//            }
+//        }
+//
+//        public void stopConnection() throws IOException {
+//            in.close();
+//            out.close();
+//            socket.close();
+//        }
+//    }
+    
+    private static class Client {
+        private Socket socket;
+        private PrintWriter out;
+        private BufferedReader in;
+
+        public void startConnection(String ip, int port) throws IOException {
+            socket = new Socket(ip, port);
+            out = new PrintWriter(socket.getOutputStream(), true);
+            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+            // Listen for the start game command from the server
+            String fromServer;
+            while ((fromServer = in.readLine()) != null) {
+                if ("START_GAME".equals(fromServer)) {
+                    System.out.println("Game starts now!");
+                    showGameScreen();  // Client starts the game.
+                    break;  // Exit the loop and start the game
+                }
+            }
+        }
+
+        public void stopConnection() throws IOException {
+            in.close();
+            out.close();
+            socket.close();
+        }
+    }
+
+    
+//    private static class Server {
+//        private ServerSocket serverSocket;
+//        private boolean gameStarted = false;
+//
+//        public void start(int port) throws IOException {
+//            serverSocket = new ServerSocket(port);
+//            System.out.println("Server started on port " + port);
+//
+//            try {
+//                while (!gameStarted) {
+//                    Socket clientSocket = serverSocket.accept();
+//                    System.out.println("Client connected: " + clientSocket.getInetAddress());
+//                    handleClient(clientSocket);
+//                }
+//            } finally {
+//                serverSocket.close();
+//            }
+//        }
+//        
+//        public void stop() throws IOException {
+//        	serverSocket.close();
+//        }
+//
+//        private void handleClient(Socket clientSocket) throws IOException {
+//            PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
+//            BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+//
+//            // Send a start game signal to the client
+//            out.println("START_GAME");
+//            gameStarted = true;
+//
+//            
+//            
+//            // Additional game setup can go here
+//            // Listen for messages or game actions
+//            String inputLine;
+//            while ((inputLine = in.readLine()) != null) {
+//                System.out.println("Client says: " + inputLine);
+//            }
+//
+//            in.close();
+//            out.close();
+//            clientSocket.close();
+//        }
+//    }
+
+    private static class Server {
+        private ServerSocket serverSocket;
+        private boolean gameStarted = false;
+
+        public void start(int port) throws IOException {
+            serverSocket = new ServerSocket(port);
+            System.out.println("Server started on port " + port);
+
+            try {
+                Socket clientSocket = serverSocket.accept();
+                System.out.println("Client connected: " + clientSocket.getInetAddress());
+                handleClient(clientSocket);
+            } finally {
+                serverSocket.close();
+            }
+        }
+        
+        private void handleClient(Socket clientSocket) throws IOException {
+            PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
+            BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+
+            // Confirm the connection and start the game.
+            out.println("START_GAME");
+            gameStarted = true;
+
+            showGameScreen();  // Host starts the game.
+
+            // Here you can handle additional communication
+            String inputLine;
+            while ((inputLine = in.readLine()) != null) {
+                System.out.println("Client says: " + inputLine);
+            }
+
+            in.close();
+            out.close();
+            clientSocket.close();
+        }
+        public void stop() throws IOException {
+        	serverSocket.close();
+        }
+    }
+
+    
+    private static class Game {
+    	private JFrame frame;
+        private Server server;
+        private Client client;
+        private boolean isHost = false;
+
+        public Game() {
+            frame = new JFrame("Multiplayer Game Setup");
+            frame.setSize(300, 200);
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            frame.setLayout(new GridLayout(3, 1));
+
+            JButton hostButton = new JButton("Host Game");
+            hostButton.addActionListener(e -> {
+				try {
+					hostGame(e);
+				} catch (Throwable e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+			});
+            
+            JButton joinButton = new JButton("Join Game");
+            joinButton.addActionListener(e -> {
+				try {
+					joinGame(e);
+				} catch (Throwable e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+			});
+
+            frame.add(hostButton);
+            frame.add(joinButton);
+
+            frame.setVisible(true);
+        }
+
+        private void hostGame(ActionEvent event) throws Throwable {
+            isHost = true;
+            showWaitingScreen();
+            server = new Server();
+            
+            try {
+                String hostIp = getHostIp();
+                if (hostIp != null) {
+                    System.out.println("Hosting game on IP: " + hostIp);
+                } else {
+                    System.out.println("Failed to determine host IP.");
+                }
+                server.start(6666);  // Port should be the same for client and server
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        
+        private String getHostIp() {
+            try {
+                Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+                while (interfaces.hasMoreElements()) {
+                    NetworkInterface iface = interfaces.nextElement();
+                    // filters out 127.0.0.1 and inactive interfaces
+                    if (iface.isLoopback() || !iface.isUp() || iface.isVirtual())
+                        continue;
+
+                    Enumeration<InetAddress> addresses = iface.getInetAddresses();
+                    while (addresses.hasMoreElements()) {
+                        InetAddress addr = addresses.nextElement();
+                        // *Prefer non-localhost addresses that are likely usable*
+                        if (!addr.isLoopbackAddress() && addr.isSiteLocalAddress()) {
+                            return addr.getHostAddress();
+                        }
+                    }
+                }
+            } catch (SocketException e) {
+                e.printStackTrace();
+            }
+            return null;
+        }
+        
+        private void joinGame(ActionEvent event) throws Throwable {
+            String ip = JOptionPane.showInputDialog(frame, "Enter the IP address of the host:");
+            showWaitingScreen();
+            client = new Client();
+            client.startConnection(ip, 6666);
+        }
+
+        private void showWaitingScreen() {
+            JPanel waitingPanel = new JPanel(new BorderLayout());
+            JLabel waitingLabel = new JLabel("Waiting for a player to join...");
+            waitingLabel.setHorizontalAlignment(SwingConstants.CENTER);
+            waitingPanel.add(waitingLabel, BorderLayout.CENTER);
+
+            JButton cancelButton = new JButton("Cancel");
+            cancelButton.addActionListener(e -> {
+                if (isHost && server != null) {
+                    try {
+						server.stop();
+					} catch (IOException e1) {
+						// TODO Auto-generated catch block
+						e1.printStackTrace();
+					} // Stop the server if it's running
+                } else if (client != null) {
+                    try {
+						client.stopConnection();
+					} catch (IOException e1) {
+						// TODO Auto-generated catch block
+						e1.printStackTrace();
+					} // Disconnect the client
+                }
+                showGameModeSelectionScreen();
+            });
+
+            waitingPanel.add(cancelButton, BorderLayout.SOUTH);
+            frame.getContentPane().removeAll();
+            frame.getContentPane().add(waitingPanel);
+            frame.revalidate();
+            frame.repaint();
+
+            // Thread to handle the server or client running in the background
+            Thread networkThread = new Thread(() -> {
+                if (isHost) {
+                    try {
+						server.start(6666);
+					} catch (IOException e1) {
+						// TODO Auto-generated catch block
+						e1.printStackTrace();
+					} // Start server on the specified port
+                } else {
+                    try {
+						client.startConnection("IP_ADDRESS", 6666);
+					} catch (IOException e1) {
+						// TODO Auto-generated catch block
+						e1.printStackTrace();
+					} // Start client connection
+                }
+            });
+            networkThread.start();
+        }
+
+        private void showGameModeSelectionScreen() {
+            // Method to switch back to the initial screen to select host or join
+            // This should include components to reinitialize the main GUI
+        	showMainMenu();
+        }
+    }
+
 }
