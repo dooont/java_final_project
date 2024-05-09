@@ -1,0 +1,6 @@
+CREATE TABLE Scores (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    initials VARCHAR(3),
+    score INT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+);
