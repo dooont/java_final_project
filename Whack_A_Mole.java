@@ -1,10 +1,7 @@
-package whack_a_mole;
-
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import javax.swing.*;
-import javax.swing.border.Border;
 import java.util.Random;
 
 import java.sql.Connection;
@@ -17,7 +14,7 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Whack_a_Mole {
+public class Main {
     private static JFrame frame;
     private static JPanel gamePanel;
     private static JPanel settingsPanel;
@@ -46,7 +43,7 @@ public class Whack_a_Mole {
 
     // Main Menu Screen
     private static void showMainMenu() {
-        JPanel mainPanel = new JPanel(new GridLayout(3, 1));
+        JPanel mainPanel = new JPanel(new GridLayout(4, 1));
         JButton playButton = new JButton("Play");
 
         playButton.addActionListener(new ActionListener() {
@@ -74,9 +71,19 @@ public class Whack_a_Mole {
             }
         });
 
+        JButton leaderboardButton = new JButton("Leaderboard");
+
+        leaderboardButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                showLeaderboardScreen();
+            }
+        });
+
         mainPanel.add(playButton);
         mainPanel.add(settingsButton);
         mainPanel.add(howToPlayButton);
+        mainPanel.add(leaderboardButton);
         frame.getContentPane().removeAll();
         frame.getContentPane().add(mainPanel);
         frame.revalidate();
@@ -229,7 +236,7 @@ public class Whack_a_Mole {
         Thread networkThread = new Thread(new Runnable() {
             @Override
             public void run() {
-                
+
             }
         });
         networkThread.start();
@@ -269,6 +276,38 @@ public class Whack_a_Mole {
         gameModePanel.add(backButton);
         frame.getContentPane().removeAll();
         frame.getContentPane().add(gameModePanel);
+        frame.revalidate();
+        frame.repaint();
+    }
+
+    private static void showLeaderboardScreen() {
+        JPanel leaderboardPanel = new JPanel(new BorderLayout());
+        JTextArea leaderboardTextArea = new JTextArea();
+        leaderboardTextArea.setEditable(false);
+
+        List<Timer.ScoreEntry> topScores = Timer.MySQLConnection.getTopScores();
+        StringBuilder leaderboardText = new StringBuilder("Leaderboard:\n\n");
+        for (int i = 0; i < topScores.size(); i++) {
+            Timer.ScoreEntry entry = topScores.get(i);
+            leaderboardText.append(String.format("%d, %s - %d\n", i + 1, entry.getInitials(), entry.getScore()));
+        }
+
+        leaderboardTextArea.setText(leaderboardText.toString());
+
+        JScrollPane scrollPane = new JScrollPane(leaderboardTextArea);
+        leaderboardPanel.add(scrollPane, BorderLayout.CENTER);
+
+        JButton backButton = new JButton("Back");
+        backButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                showMainMenu();
+            }
+        });
+        leaderboardPanel.add(backButton, BorderLayout.SOUTH);
+
+        frame.getContentPane().removeAll();
+        frame.getContentPane().add(leaderboardPanel);
         frame.revalidate();
         frame.repaint();
     }
