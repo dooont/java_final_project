@@ -1,5 +1,5 @@
-# java_final_project
-CS-UY 3913 Java and Web Design Final Project
+Whack A Mole game made with Java 
+Creators: Jack Ma and Matthew Maung
 
 Database:
 port = 3306
