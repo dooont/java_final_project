@@ -1,4 +1,10 @@
-{
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import javax.swing.*;
+import java.util.Random;
+
+public class Main {
     private static JFrame frame;
     private static JPanel gamePanel;
     private static JPanel settingsPanel;
