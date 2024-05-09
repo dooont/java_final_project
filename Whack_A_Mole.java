@@ -17,7 +17,7 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Whack_A_Mole {
+public class Whack_a_Mole {
     private static JFrame frame;
     private static JPanel gamePanel;
     private static JPanel settingsPanel;
@@ -52,7 +52,7 @@ public class Whack_A_Mole {
         playButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                showGameScreen();
+                showGameModeSelectionScreen();
             }
         });
 
@@ -205,6 +205,74 @@ public class Whack_A_Mole {
         frame.repaint();
     }
 
+    private static void showMultiplayerWaitingScreen() {
+        JPanel waitingPanel = new JPanel(new BorderLayout());
+        JLabel waitingLabel = new JLabel("Waiting for a player to join...");
+        waitingLabel.setHorizontalAlignment(SwingConstants.CENTER);
+
+        JButton cancelButton = new JButton("Cancel");
+        cancelButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                showGameModeSelectionScreen();
+            }
+        });
+
+        waitingPanel.add(waitingPanel, BorderLayout.CENTER);
+        waitingPanel.add(cancelButton, BorderLayout.SOUTH);
+        frame.getContentPane().removeAll();
+        frame.getContentPane().add(waitingPanel);
+        frame.revalidate();
+        frame.repaint();
+
+        // Thread to establish connectivity between players
+        Thread networkThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                
+            }
+        });
+        networkThread.start();
+
+    }
+
+    private static void showGameModeSelectionScreen() {
+        JPanel gameModePanel = new JPanel(new GridLayout(3, 1));
+        JButton singlePlayerButton = new JButton("Single Player");
+
+        singlePlayerButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                showGameScreen();
+            }
+        });
+
+        JButton multiplayerButton = new JButton("Multi Player");
+
+        multiplayerButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                showMultiplayerWaitingScreen();
+            }
+        });
+
+        JButton backButton = new JButton("Back");
+        backButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                showMainMenu();
+            }
+        });
+
+        gameModePanel.add(singlePlayerButton);
+        gameModePanel.add(multiplayerButton);
+        gameModePanel.add(backButton);
+        frame.getContentPane().removeAll();
+        frame.getContentPane().add(gameModePanel);
+        frame.revalidate();
+        frame.repaint();
+    }
+
     // Changes the moles color, difficulty increases the speed
     private static class MoleColorChanger implements Runnable {
         private JButton moleButton;
@@ -292,16 +360,6 @@ public class Whack_A_Mole {
             });
         }
 
-//        private void endGame() {
-//            SwingUtilities.invokeLater(new Runnable() {
-//                @Override
-//                public void run() {
-//                    JOptionPane.showMessageDialog(frame, "Game Over! Your score: " + score);
-//                    score = 0;
-//                    showMainMenu();
-//                }
-//            });
-//        }
         private void endGame() {
             SwingUtilities.invokeLater(() -> {
                 List<ScoreEntry> topScores = MySQLConnection.getTopScores();
@@ -320,58 +378,58 @@ public class Whack_A_Mole {
                 score = 0;
                 showMainMenu();
             });
-    }
-    
-    class MySQLConnection {
-        private static final String URL = "jdbc:mysql://localhost/javafinal?useSSL=false";
-        private static final String USERNAME = "root";
-        private static final String PASSWORD = "";
-
-        private static Connection getConnection() throws SQLException {
-            return DriverManager.getConnection(URL, USERNAME, PASSWORD);
         }
 
-        public static void insertScore(String initials, int score) {
-            String sql = "INSERT INTO Scores (initials, score) VALUES (?, ?)";
-            try (Connection conn = getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                pstmt.setString(1, initials);
-                pstmt.setInt(2, score);
-                pstmt.executeUpdate();
-            } catch (SQLException e) {
-                System.out.println("SQL Exception: " + e.getMessage());
+        class MySQLConnection {
+            private static final String URL = "jdbc:mysql://localhost/javafinal?useSSL=false";
+            private static final String USERNAME = "root";
+            private static final String PASSWORD = "";
+
+            private static Connection getConnection() throws SQLException {
+                return DriverManager.getConnection(URL, USERNAME, PASSWORD);
             }
-        }
 
-        public static List<ScoreEntry> getTopScores() {
-            List<ScoreEntry> scores = new ArrayList<>();
-            String sql = "SELECT initials, score FROM Scores ORDER BY score DESC LIMIT 10";
-            try (Connection conn = getConnection(); Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
-                while (rs.next()) {
-                    scores.add(new ScoreEntry(rs.getString("initials"), rs.getInt("score")));
+            public static void insertScore(String initials, int score) {
+                String sql = "INSERT INTO Scores (initials, score) VALUES (?, ?)";
+                try (Connection conn = getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                    pstmt.setString(1, initials);
+                    pstmt.setInt(2, score);
+                    pstmt.executeUpdate();
+                } catch (SQLException e) {
+                    System.out.println("SQL Exception: " + e.getMessage());
                 }
-            } catch (SQLException e) {
-                System.out.println("SQL Exception: " + e.getMessage());
             }
-            return scores;
-        }
-    }
 
-    private static class ScoreEntry {
-        private String initials;
-        private int score;
-
-        public ScoreEntry(String initials, int score) {
-            this.initials = initials;
-            this.score = score;
-        }
-
-        public String getInitials() {
-            return initials;
+            public static List<ScoreEntry> getTopScores() {
+                List<ScoreEntry> scores = new ArrayList<>();
+                String sql = "SELECT initials, score FROM Scores ORDER BY score DESC LIMIT 10";
+                try (Connection conn = getConnection(); Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
+                    while (rs.next()) {
+                        scores.add(new ScoreEntry(rs.getString("initials"), rs.getInt("score")));
+                    }
+                } catch (SQLException e) {
+                    System.out.println("SQL Exception: " + e.getMessage());
+                }
+                return scores;
+            }
         }
 
-        public int getScore() {
-            return score;
+        private static class ScoreEntry {
+            private String initials;
+            private int score;
+
+            public ScoreEntry(String initials, int score) {
+                this.initials = initials;
+                this.score = score;
+            }
+
+            public String getInitials() {
+                return initials;
+            }
+
+            public int getScore() {
+                return score;
+            }
         }
-    	}
     }
 }
