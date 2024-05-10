@@ -1,4 +1,4 @@
-package whack_a_mole;
+	package whack_a_mole;
 
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -6,7 +6,7 @@ import java.awt.event.ActionListener;
 import javax.swing.*;
 import javax.swing.border.Border;
 import java.util.Random;
-
+import java.util.concurrent.TimeUnit;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -226,24 +226,6 @@ public class Whack_A_Mole {
     }
 
     private static void showMultiplayerWaitingScreen() {
-        JPanel waitingPanel = new JPanel(new BorderLayout());
-        JLabel waitingLabel = new JLabel("Waiting for a player to join...");
-        waitingLabel.setHorizontalAlignment(SwingConstants.CENTER);
-
-        JButton cancelButton = new JButton("Cancel");
-        cancelButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                showGameModeSelectionScreen();
-            }
-        });
-
-        waitingPanel.add(waitingLabel, BorderLayout.CENTER);
-        waitingPanel.add(cancelButton, BorderLayout.SOUTH);
-        frame.getContentPane().removeAll();
-        frame.getContentPane().add(waitingPanel);
-        frame.revalidate();
-        frame.repaint();
 
         // Thread to establish connectivity between players
         Thread networkThread = new Thread(new Runnable() {
@@ -484,33 +466,92 @@ public class Whack_A_Mole {
             }
         }
     }
-    
-//    private static class Client {
-//        private Socket socket;
-//        private PrintWriter out;
-//        private BufferedReader in;
-//
-//        public void startConnection(String ip, int port) throws IOException {
-//            socket = new Socket(ip, port);
-//            out = new PrintWriter(socket.getOutputStream(), true);
-//            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-//
-//            // Listen for the start game command from the server
-//            String fromServer;
-//            while ((fromServer = in.readLine()) != null) {
-//                if ("START_GAME".equals(fromServer)) {
-//                    System.out.println("Game starts now!");
-//                    break;  // Exit the loop and start the game
-//                }
-//            }
-//        }
-//
-//        public void stopConnection() throws IOException {
-//            in.close();
-//            out.close();
-//            socket.close();
-//        }
-//    }
+    private static class Server {
+        private ServerSocket serverSocket;
+        private final List<ClientHandler> clients = new ArrayList<>();
+
+        public void start(int port) throws IOException {
+            serverSocket = new ServerSocket(port);
+            System.out.println("Server started on port " + port);
+
+            while (true) {
+                Socket clientSocket = serverSocket.accept();
+                ClientHandler clientHandler = new ClientHandler(clientSocket, this);
+                clients.add(clientHandler);
+                new Thread(clientHandler).start();
+            }
+        }
+
+        public void stop() throws IOException {
+            for (ClientHandler client : clients) {
+                client.stop();
+            }
+            serverSocket.close();
+        }
+
+        public synchronized void broadcastMessage(String message) {
+            for (ClientHandler client : clients) {
+                client.sendMessage(message);
+            }
+        }
+
+        private static class ClientHandler implements Runnable {
+            private Socket clientSocket;
+            private PrintWriter out;
+            private BufferedReader in;
+            private String clientName;
+            private Server server;
+
+            public ClientHandler(Socket socket, Server server) {
+                this.clientSocket = socket;
+                this.server = server;
+            }
+
+            public void run() {
+                try {
+                    out = new PrintWriter(clientSocket.getOutputStream(), true);
+                    in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+
+                    // Get client name
+                    out.println("Enter your name:");
+                    clientName = in.readLine();
+                    server.broadcastMessage(clientName + " has joined the chat!");
+
+                    out.println("Starting game...");
+                    showGameScreen();
+                    
+                    String inputLine;
+                    while ((inputLine = in.readLine()) != null) {
+                        if ("quit".equalsIgnoreCase(inputLine)) {
+                            break;
+                        }
+                        server.broadcastMessage(clientName + ": " + inputLine);
+                    }
+
+                    server.broadcastMessage(clientName + " has left the chat.");
+                } catch (IOException e) {
+                    System.out.println("Error handling client " + clientName + ": " + e.getMessage());
+                    e.printStackTrace();
+                } finally {
+                    stop();
+                }
+            }
+
+            public void stop() {
+                try {
+                    in.close();
+                    out.close();
+                    clientSocket.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            public void sendMessage(String message) {
+                out.println(message);
+            }
+        }
+    }
     
     private static class Client {
         private Socket socket;
@@ -522,15 +563,30 @@ public class Whack_A_Mole {
             out = new PrintWriter(socket.getOutputStream(), true);
             in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
-            // Listen for the start game command from the server
-            String fromServer;
-            while ((fromServer = in.readLine()) != null) {
-                if ("START_GAME".equals(fromServer)) {
-                    System.out.println("Game starts now!");
-                    showGameScreen();  // Client starts the game.
-                    break;  // Exit the loop and start the game
+            // Reading from server
+            new Thread(() -> {
+                try {
+                    String fromServer;
+                    while ((fromServer = in.readLine()) != null) {
+                        System.out.println(fromServer);
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
+            }).start();
+
+            // Sending messages to server
+            BufferedReader stdIn = new BufferedReader(new InputStreamReader(System.in));
+            String userInput;
+            while ((userInput = stdIn.readLine()) != null && !userInput.equalsIgnoreCase("quit")) {
+                sendMessage(userInput);
             }
+
+            stopConnection();
+        }
+
+        public void sendMessage(String message) {
+            out.println(message);
         }
 
         public void stopConnection() throws IOException {
@@ -539,128 +595,23 @@ public class Whack_A_Mole {
             socket.close();
         }
     }
-
-    
-//    private static class Server {
-//        private ServerSocket serverSocket;
-//        private boolean gameStarted = false;
-//
-//        public void start(int port) throws IOException {
-//            serverSocket = new ServerSocket(port);
-//            System.out.println("Server started on port " + port);
-//
-//            try {
-//                while (!gameStarted) {
-//                    Socket clientSocket = serverSocket.accept();
-//                    System.out.println("Client connected: " + clientSocket.getInetAddress());
-//                    handleClient(clientSocket);
-//                }
-//            } finally {
-//                serverSocket.close();
-//            }
-//        }
-//        
-//        public void stop() throws IOException {
-//        	serverSocket.close();
-//        }
-//
-//        private void handleClient(Socket clientSocket) throws IOException {
-//            PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
-//            BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-//
-//            // Send a start game signal to the client
-//            out.println("START_GAME");
-//            gameStarted = true;
-//
-//            
-//            
-//            // Additional game setup can go here
-//            // Listen for messages or game actions
-//            String inputLine;
-//            while ((inputLine = in.readLine()) != null) {
-//                System.out.println("Client says: " + inputLine);
-//            }
-//
-//            in.close();
-//            out.close();
-//            clientSocket.close();
-//        }
-//    }
-
-    private static class Server {
-        private ServerSocket serverSocket;
-        private boolean gameStarted = false;
-
-        public void start(int port) throws IOException {
-            serverSocket = new ServerSocket(port);
-            System.out.println("Server started on port " + port);
-
-            try {
-                Socket clientSocket = serverSocket.accept();
-                System.out.println("Client connected: " + clientSocket.getInetAddress());
-                handleClient(clientSocket);
-            } finally {
-                serverSocket.close();
-            }
-        }
-        
-        private void handleClient(Socket clientSocket) throws IOException {
-            PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
-            BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-
-            // Confirm the connection and start the game.
-            out.println("START_GAME");
-            gameStarted = true;
-
-            showGameScreen();  // Host starts the game.
-
-            // Here you can handle additional communication
-            String inputLine;
-            while ((inputLine = in.readLine()) != null) {
-                System.out.println("Client says: " + inputLine);
-            }
-
-            in.close();
-            out.close();
-            clientSocket.close();
-        }
-        public void stop() throws IOException {
-        	serverSocket.close();
-        }
-    }
-
-    
     private static class Game {
-    	private JFrame frame;
+        private JFrame frame;
         private Server server;
         private Client client;
         private boolean isHost = false;
 
         public Game() {
-            frame = new JFrame("Multiplayer Game Setup");
+            frame = new JFrame("Whack A Mole Multiplayer Setup");
             frame.setSize(300, 200);
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.setLayout(new GridLayout(3, 1));
 
             JButton hostButton = new JButton("Host Game");
-            hostButton.addActionListener(e -> {
-				try {
-					hostGame(e);
-				} catch (Throwable e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
-				}
-			});
+            hostButton.addActionListener(this::hostGame);
             
             JButton joinButton = new JButton("Join Game");
-            joinButton.addActionListener(e -> {
-				try {
-					joinGame(e);
-				} catch (Throwable e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
-				}
-			});
+            joinButton.addActionListener(this::joinGame);
 
             frame.add(hostButton);
             frame.add(joinButton);
@@ -668,10 +619,10 @@ public class Whack_A_Mole {
             frame.setVisible(true);
         }
 
-        private void hostGame(ActionEvent event) throws Throwable {
+        private void hostGame(ActionEvent event) {
             isHost = true;
-            showWaitingScreen();
             server = new Server();
+            showHostingScreen();
             
             try {
                 String hostIp = getHostIp();
@@ -680,25 +631,108 @@ public class Whack_A_Mole {
                 } else {
                     System.out.println("Failed to determine host IP.");
                 }
-                server.start(6666);  // Port should be the same for client and server
+                new Thread(() -> {
+                    try {
+                        server.start(6666);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }).start();
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }
-        
+
+        private void showHostingScreen() {
+        	JPanel waitingPanel = new JPanel(new BorderLayout());
+            JLabel waitingLabel = new JLabel("Hosting Game...");
+            waitingLabel.setHorizontalAlignment(SwingConstants.CENTER);
+            waitingPanel.add(waitingLabel, BorderLayout.CENTER);
+
+            JButton cancelButton = new JButton("End Host");
+            cancelButton.addActionListener(e -> {
+                if (isHost && server != null) {
+                    try {
+                        server.stop();  // Stop the server if it's running
+                    } catch (IOException e1) {
+                        e1.printStackTrace();
+                    }
+                } else if (client != null) {
+                    try {
+                        client.stopConnection();  // Disconnect the client
+                    } catch (IOException e1) {
+                        e1.printStackTrace();
+                    }
+                }
+                frame.dispose();
+                showMainMenu();
+            });
+
+            waitingPanel.add(cancelButton, BorderLayout.SOUTH);
+            frame.getContentPane().removeAll();
+            frame.getContentPane().add(waitingPanel);
+            frame.revalidate();
+            frame.repaint();
+		}
+
+		private void joinGame(ActionEvent event) {
+            String ip = JOptionPane.showInputDialog(frame, "Enter the IP address of the host:");
+            if (ip != null && !ip.isEmpty()) {
+                client = new Client();
+                // Start client connection on a new thread
+                new Thread(() -> {
+                    try {
+                        client.startConnection(ip, 6666);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }).start();
+                frame.dispose();
+            }
+        }
+
+        private void showWaitingScreen() {
+            JPanel waitingPanel = new JPanel(new BorderLayout());
+            JLabel waitingLabel = new JLabel("Waiting for other players...");
+            waitingLabel.setHorizontalAlignment(SwingConstants.CENTER);
+            waitingPanel.add(waitingLabel, BorderLayout.CENTER);
+
+            JButton cancelButton = new JButton("Cancel");
+            cancelButton.addActionListener(e -> {
+                if (isHost && server != null) {
+                    try {
+                        server.stop();  // Stop the server if it's running
+                    } catch (IOException e1) {
+                        e1.printStackTrace();
+                    }
+                } else if (client != null) {
+                    try {
+                        client.stopConnection();  // Disconnect the client
+                    } catch (IOException e1) {
+                        e1.printStackTrace();
+                    }
+                }
+                frame.dispose();
+                showMainMenu();
+            });
+
+            waitingPanel.add(cancelButton, BorderLayout.SOUTH);
+            frame.getContentPane().removeAll();
+            frame.getContentPane().add(waitingPanel);
+            frame.revalidate();
+            frame.repaint();
+        }
+
         private String getHostIp() {
             try {
                 Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
                 while (interfaces.hasMoreElements()) {
                     NetworkInterface iface = interfaces.nextElement();
-                    // filters out 127.0.0.1 and inactive interfaces
-                    if (iface.isLoopback() || !iface.isUp() || iface.isVirtual())
-                        continue;
+                    if (iface.isLoopback() || !iface.isUp() || iface.isVirtual()) continue;
 
                     Enumeration<InetAddress> addresses = iface.getInetAddresses();
                     while (addresses.hasMoreElements()) {
                         InetAddress addr = addresses.nextElement();
-                        // *Prefer non-localhost addresses that are likely usable*
                         if (!addr.isLoopbackAddress() && addr.isSiteLocalAddress()) {
                             return addr.getHostAddress();
                         }
@@ -709,72 +743,6 @@ public class Whack_A_Mole {
             }
             return null;
         }
-        
-        private void joinGame(ActionEvent event) throws Throwable {
-            String ip = JOptionPane.showInputDialog(frame, "Enter the IP address of the host:");
-            showWaitingScreen();
-            client = new Client();
-            client.startConnection(ip, 6666);
-        }
-
-        private void showWaitingScreen() {
-            JPanel waitingPanel = new JPanel(new BorderLayout());
-            JLabel waitingLabel = new JLabel("Waiting for a player to join...");
-            waitingLabel.setHorizontalAlignment(SwingConstants.CENTER);
-            waitingPanel.add(waitingLabel, BorderLayout.CENTER);
-
-            JButton cancelButton = new JButton("Cancel");
-            cancelButton.addActionListener(e -> {
-                if (isHost && server != null) {
-                    try {
-						server.stop();
-					} catch (IOException e1) {
-						// TODO Auto-generated catch block
-						e1.printStackTrace();
-					} // Stop the server if it's running
-                } else if (client != null) {
-                    try {
-						client.stopConnection();
-					} catch (IOException e1) {
-						// TODO Auto-generated catch block
-						e1.printStackTrace();
-					} // Disconnect the client
-                }
-                showGameModeSelectionScreen();
-            });
-
-            waitingPanel.add(cancelButton, BorderLayout.SOUTH);
-            frame.getContentPane().removeAll();
-            frame.getContentPane().add(waitingPanel);
-            frame.revalidate();
-            frame.repaint();
-
-            // Thread to handle the server or client running in the background
-            Thread networkThread = new Thread(() -> {
-                if (isHost) {
-                    try {
-						server.start(6666);
-					} catch (IOException e1) {
-						// TODO Auto-generated catch block
-						e1.printStackTrace();
-					} // Start server on the specified port
-                } else {
-                    try {
-						client.startConnection("IP_ADDRESS", 6666);
-					} catch (IOException e1) {
-						// TODO Auto-generated catch block
-						e1.printStackTrace();
-					} // Start client connection
-                }
-            });
-            networkThread.start();
-        }
-
-        private void showGameModeSelectionScreen() {
-            // Method to switch back to the initial screen to select host or join
-            // This should include components to reinitialize the main GUI
-        	showMainMenu();
-        }
     }
-
+    
 }
