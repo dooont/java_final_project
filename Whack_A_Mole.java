@@ -516,6 +516,7 @@ public class Main {
                     server.broadcastMessage(clientName + " has joined the chat!");
 
                     out.println("Starting game...");
+                    server.broadcastMessage("START_GAME");
                     showGameScreen();
 
                     String inputLine;
@@ -591,7 +592,7 @@ public class Main {
         private void showGameScreen() {
             Main.showGameScreen();
         }
-        
+
         public void sendMessage(String message) {
             out.println(message);
         }
