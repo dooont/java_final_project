@@ -1,5 +1,3 @@
-	package whack_a_mole;
-
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -26,7 +24,7 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 
-public class Whack_A_Mole {
+public class Main {
     private static JFrame frame;
     private static JPanel gamePanel;
     private static JPanel settingsPanel;
@@ -231,7 +229,7 @@ public class Whack_A_Mole {
         Thread networkThread = new Thread(new Runnable() {
             @Override
             public void run() {
-            	new Game();
+                new Game();
             }
         });
         networkThread.start();
@@ -306,7 +304,7 @@ public class Whack_A_Mole {
         frame.revalidate();
         frame.repaint();
     }
-    
+
     // Changes the moles color, difficulty increases the speed
     private static class MoleColorChanger implements Runnable {
         private JButton moleButton;
@@ -519,7 +517,7 @@ public class Whack_A_Mole {
 
                     out.println("Starting game...");
                     showGameScreen();
-                    
+
                     String inputLine;
                     while ((inputLine = in.readLine()) != null) {
                         if ("quit".equalsIgnoreCase(inputLine)) {
@@ -552,7 +550,7 @@ public class Whack_A_Mole {
             }
         }
     }
-    
+
     private static class Client {
         private Socket socket;
         private PrintWriter out;
@@ -568,7 +566,13 @@ public class Whack_A_Mole {
                 try {
                     String fromServer;
                     while ((fromServer = in.readLine()) != null) {
-                        System.out.println(fromServer);
+                        if (fromServer.equals("START_GAME")) {
+                            System.out.println("Starting game...");
+                            SwingUtilities.invokeLater(this::showGameScreen);
+                        }
+                        else {
+                            System.out.println(fromServer);
+                        }
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -581,10 +585,13 @@ public class Whack_A_Mole {
             while ((userInput = stdIn.readLine()) != null && !userInput.equalsIgnoreCase("quit")) {
                 sendMessage(userInput);
             }
-
             stopConnection();
         }
 
+        private void showGameScreen() {
+            Main.showGameScreen();
+        }
+        
         public void sendMessage(String message) {
             out.println(message);
         }
@@ -609,7 +616,7 @@ public class Whack_A_Mole {
 
             JButton hostButton = new JButton("Host Game");
             hostButton.addActionListener(this::hostGame);
-            
+
             JButton joinButton = new JButton("Join Game");
             joinButton.addActionListener(this::joinGame);
 
@@ -623,7 +630,7 @@ public class Whack_A_Mole {
             isHost = true;
             server = new Server();
             showHostingScreen();
-            
+
             try {
                 String hostIp = getHostIp();
                 if (hostIp != null) {
@@ -644,7 +651,7 @@ public class Whack_A_Mole {
         }
 
         private void showHostingScreen() {
-        	JPanel waitingPanel = new JPanel(new BorderLayout());
+            JPanel waitingPanel = new JPanel(new BorderLayout());
             JLabel waitingLabel = new JLabel("Hosting Game...");
             waitingLabel.setHorizontalAlignment(SwingConstants.CENTER);
             waitingPanel.add(waitingLabel, BorderLayout.CENTER);
@@ -673,9 +680,9 @@ public class Whack_A_Mole {
             frame.getContentPane().add(waitingPanel);
             frame.revalidate();
             frame.repaint();
-		}
+        }
 
-		private void joinGame(ActionEvent event) {
+        private void joinGame(ActionEvent event) {
             String ip = JOptionPane.showInputDialog(frame, "Enter the IP address of the host:");
             if (ip != null && !ip.isEmpty()) {
                 client = new Client();
@@ -744,5 +751,5 @@ public class Whack_A_Mole {
             return null;
         }
     }
-    
+
 }
