@@ -30,9 +30,8 @@ Graphics are implemented throughout our project as the primary form of how the g
 **JDBC**
 The Database is implemented by maintaining a table containing all the scores and "initials" of the players. Players may input their initials (similar to an arcade) if they are one of the top 10 scorers. Once they enter their initials, the score and initials are sent to the database. 
 
-
 **Networking**
-Networking is implemented through the multiplayer function. Once a person hosts a server, other players (preferably 1) can connect to the server, enter their name, and play together. Once they finish, their score will be displayed in a chatroom for everyone to see. 
+Networking is implemented through the multiplayer function. Once a person hosts a server, other players (preferably 1) can connect to the server, enter their name, and play together. Once they finish, they will have the opportunity to talk in a chatroom post game if they so choose. Otherwise, they can click the x button to exit the chatroom.
 
 Additional Details:
 
