@@ -31,7 +31,4 @@ The Database is implemented by maintaining a table containing all the scores and
 **Networking**
 Networking is implemented through the multiplayer function. Once a person hosts a server, other players (preferably 1) can connect to the server, enter their name, and play together. Once they finish, they will have the opportunity to talk in a chatroom post game if they so choose. Otherwise, they can click the x button to exit the chatroom.
 
-Additional Details:
-
-Some videos of us demo-ing the game will also be in the github for your convenience. These will include both working with the settings, as well as showing the multiplayer functionality. 
 
