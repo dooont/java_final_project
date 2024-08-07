@@ -42,7 +42,6 @@ Navigate through various options including:
 
 - 👥 Multiplayer functionality
 - 🖥️ Server hosting and client connection
-- 💬 Post-game chat room for players
 
 ## 🗄️ Database Setup
 
